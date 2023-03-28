@@ -1,6 +1,11 @@
 const { namespaceWrapper } = require("./namespaceWrapper");
-const crypto = require('crypto');
+// const crypto = require('crypto');
+const mongoose = require('mongoose');
+const fs = require('fs');
 
+const { Web3Storage, getFilesFromPath } = require('web3.storage');
+// Create new client
+const storageClient = new Web3Storage({ token: process.env.WEB3_STORAGE_KEY });
 class CoreLogic{
 
 async task() {
@@ -10,15 +15,67 @@ async task() {
 
   try{
   
-  const x = Math.random().toString(); // generate random number and convert to string
-  const cid = crypto.createHash("sha1").update(x).digest("hex"); // convert to CID
-  console.log("HASH:", cid);
+    const url = process.env.DB_URL;
 
-  // fetching round number to store work accordingly
+    mongoose.set("strictQuery", true);
+    mongoose.connect(url, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      retryWrites: true,
+      w: "majority",
+    });
 
-  if (cid) {
-    await namespaceWrapper.storeSet("cid", cid); // store CID in levelDB
-  }
+    const playingDataSchema = new mongoose.Schema(
+      {
+        deviceInfo: { type: String },
+        playTime: { type: Date },
+        playVideo: { type: String },
+      }, {
+        timestamps: true,
+      }
+    );
+    const screenLogsSchema = new mongoose.Schema(
+      {
+        screen: { type: mongoose.Schema.Types.ObjectId, ref: "Screen" },
+        playingDetails: [playingDataSchema]
+      },
+      {
+        timestamps: true,
+      }
+    );
+
+    const ScreenLogs = mongoose.model("ScreenLogs", screenLogsSchema);
+
+    const logs = await ScreenLogs.find();
+    // console.log(logs);
+    const logsJson = JSON.stringify(logs);
+    const signedJson = await namespaceWrapper.signData(logsJson);
+    
+    fs.writeFileSync("screenLogs.json", signedJson);
+
+    if (storageClient) {
+      // Storing on IPFS through web3 storage as example
+      const file = await getFilesFromPath("./qod.json");
+      const cid = await storageClient.put(file);
+      console.log("CID of Uploaded Data: ", cid);
+      
+      await namespaceWrapper.checkSubmissionAndUpdateRound(cid);
+      if (cid) {
+        await namespaceWrapper.storeSet("cid", cid); // store CID in levelDB
+      }
+    } else {
+      console.error("No web3 storage API key provided");
+    }
+
+  // const x = Math.random().toString(); // generate random number and convert to string
+  // const cid = crypto.createHash("sha1").update(x).digest("hex"); // convert to CID
+  // console.log("HASH:", cid);
+
+  // // fetching round number to store work accordingly
+
+  // if (cid) {
+  //   await namespaceWrapper.storeSet("cid", cid); // store CID in levelDB
+  // }
 }catch(err){
   console.log("ERROR IN EXECUTING TASK", err);
 }
