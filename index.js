@@ -1,7 +1,9 @@
 const {coreLogic} = require("./coreLogic");
 const { app } = require("./init");
 const { namespaceWrapper } = require("./namespaceWrapper");
-
+const axios = require("axios");
+const { Web3Storage } = require('web3.storage');
+const client = new Web3Storage({ token: process.env.SECRET_WEB3_STORAGE });
 
 async function setup() {
   console.log("setup function called");
@@ -54,12 +56,12 @@ async function setup() {
 
   // Call to do the work for the task
 
-  //await coreLogic.task();
+  await coreLogic.task();
 
   // Submission to K2 (Preferablly you should submit the cid received from IPFS)
 
 
-   //await coreLogic.submitTask(round - 1);
+  //  await coreLogic.submitTask(round - 1);
 
   // Audit submissions 
 
@@ -93,12 +95,27 @@ if (app) {
   //  app.post('/accept-cid', async (req, res) => {})
 
   // Sample API that return your task state 
-
+  // https:localhost:8080/task/:taskid/taskState
   app.get('/taskState', async (req, res) => {
     const state = await namespaceWrapper.getTaskState();
-   console.log("TASK STATE", state);
+    console.log("TASK STATE", state);
 
-  res.status(200).json({ taskState: state })
+    res.status(200).json({ taskState: state })
+  })
+
+  app.get('/getCidData', async (req, res) => {
+    const cid1 = await namespaceWrapper.storeGet("cid");
+    console.log("API CALLED CID", cid1)
+    const resp = await client.get(cid1); // Web3Response
+    const files = await resp.files(); // Web3File[]
+    console.log("files", files)
+
+    for (const file of files) {
+      console.log(`${file.cid} ${file.name} ${file.size}`);
+      const data = await axios.get(`https://ipfs.io/ipfs/${file.cid}`);
+      res.status(200).json({data: data.data})
+    }
+    
   })
 }
 

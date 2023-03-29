@@ -5,7 +5,7 @@ const fs = require('fs');
 
 const { Web3Storage, getFilesFromPath } = require('web3.storage');
 // Create new client
-const storageClient = new Web3Storage({ token: process.env.WEB3_STORAGE_KEY });
+const storageClient = new Web3Storage({ token: process.env.SECRET_WEB3_STORAGE });
 class CoreLogic{
 
 async task() {
@@ -15,7 +15,7 @@ async task() {
 
   try{
   
-    const url = process.env.DB_URL;
+    const url = process.env.SECRET_DB_URL;
 
     mongoose.set("strictQuery", true);
     mongoose.connect(url, {
@@ -47,15 +47,17 @@ async task() {
     const ScreenLogs = mongoose.model("ScreenLogs", screenLogsSchema);
 
     const logs = await ScreenLogs.find();
-    // console.log(logs);
     const logsJson = JSON.stringify(logs);
-    const signedJson = await namespaceWrapper.signData(logsJson);
+    // const signedJson = await namespaceWrapper.signAr(logsJson);
     
-    fs.writeFileSync("screenLogs.json", signedJson);
+    fs.writeFileSync("screenLogs.json", logsJson);
 
     if (storageClient) {
+      console.log("CALLED", logs.length);
+
       // Storing on IPFS through web3 storage as example
-      const file = await getFilesFromPath("./qod.json");
+      const file = await getFilesFromPath("./screenLogs.json");
+      console.log("CALLED", file);
       const cid = await storageClient.put(file);
       console.log("CID of Uploaded Data: ", cid);
       
@@ -63,6 +65,8 @@ async task() {
       if (cid) {
         await namespaceWrapper.storeSet("cid", cid); // store CID in levelDB
       }
+    console.log("CID", cid);
+
     } else {
       console.error("No web3 storage API key provided");
     }

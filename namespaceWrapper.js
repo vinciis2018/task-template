@@ -117,6 +117,10 @@ class NamespaceWrapper {
     return await genericHandler('signEth',transaction);
 
   }
+
+  async signedData(transaction) {
+    return    
+  }
   async getTaskState() {
     return await genericHandler("getTaskState");
   }
